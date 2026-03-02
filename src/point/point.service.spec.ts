@@ -191,4 +191,86 @@ describe('PointService', () => {
             await expect(service.chargeUserPoint(1, -100)).rejects.toThrow();
         });
     });
+
+    // =========================================
+    // 단계 4: 포인트 사용
+    // =========================================
+    describe('포인트 사용', () => {
+        /**
+         * 잔액에서 사용 금액을 뺀 결과가 반환되어야 한다.
+         * → 1000 - 300 = 700
+         */
+        it('포인트를 사용하면 잔액에서 사용 금액이 차감된다', async () => {
+            // Given: 사용자 1번에 1000포인트가 있는 상황
+            await userDb.insertOrUpdate(1, 1000);
+
+            // When: 300포인트를 사용하면
+            const result = await service.useUserPoint(1, 300);
+
+            // Then: 700포인트가 남는다
+            expect(result.point).toBe(700);
+        });
+
+        /**
+         * 잔액과 동일한 금액을 사용하면?
+         * → 포인트가 정확히 0이 되어야 한다. (에러가 아님)
+         */
+        it('잔액과 동일한 금액을 사용하면 포인트가 0이 된다', async () => {
+            // Given: 사용자 1번에 500포인트가 있는 상황
+            await userDb.insertOrUpdate(1, 500);
+
+            // When: 500포인트를 사용하면
+            const result = await service.useUserPoint(1, 500);
+
+            // Then: 0포인트가 된다
+            expect(result.point).toBe(0);
+        });
+
+        /**
+         * 잔액보다 많은 금액을 사용하려고 하면?
+         * → 에러가 발생해야 하고, DB는 변경되지 않아야 한다.
+         */
+        it('잔액이 부족하면 에러가 발생한다', async () => {
+            // Given: 사용자 1번에 100포인트가 있는 상황
+            await userDb.insertOrUpdate(1, 100);
+
+            // When & Then: 200포인트 사용 시도하면 에러
+            await expect(service.useUserPoint(1, 200)).rejects.toThrow();
+
+            // And: 포인트가 변경되지 않았는지 확인
+            const afterPoint = await service.getUserPoint(1);
+            expect(afterPoint.point).toBe(100);
+        });
+
+        /**
+         * 사용을 하면 USE 타입의 이력이 반드시 기록되어야 한다.
+         * → 이력이 없으면 나중에 "왜 포인트가 줄었는지" 추적이 불가능
+         */
+        it('사용 시 USE 타입의 이력이 기록된다', async () => {
+            // Given: 사용자 1번에 1000포인트가 있는 상황
+            await userDb.insertOrUpdate(1, 1000);
+
+            // When: 300포인트를 사용하면
+            await service.useUserPoint(1, 300);
+
+            // Then: USE 이력이 1건 기록되어 있다
+            const histories = await historyDb.selectAllByUserId(1);
+            expect(histories).toHaveLength(1);
+            expect(histories[0].type).toBe(TransactionType.USE);
+            expect(histories[0].amount).toBe(300);
+        });
+
+        /**
+         * 사용 금액이 0 이하이면 에러가 발생해야 한다.
+         * → 0원이나 마이너스 사용은 의미가 없음
+         */
+        it('사용 금액이 0 이하이면 에러가 발생한다', async () => {
+            // Given: 사용자 1번에 1000포인트가 있는 상황
+            await userDb.insertOrUpdate(1, 1000);
+
+            // When & Then: 0이나 음수로 사용 시도하면 에러
+            await expect(service.useUserPoint(1, 0)).rejects.toThrow();
+            await expect(service.useUserPoint(1, -100)).rejects.toThrow();
+        });
+    });
 });

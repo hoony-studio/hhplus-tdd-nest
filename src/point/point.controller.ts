@@ -25,13 +25,9 @@ export class PointController {
         return this.pointService.chargeUserPoint(userId, pointDto.amount);
     }
 
-    /**
-     * TODO - 특정 유저의 포인트를 사용하는 기능을 작성해주세요.
-     */
     @Patch(':id/use')
     async use(@Param('id') id, @Body(ValidationPipe) pointDto: PointDto): Promise<UserPoint> {
         const userId = Number.parseInt(id);
-        const amount = pointDto.amount;
-        return { id: userId, point: amount, updateMillis: Date.now() };
+        return this.pointService.useUserPoint(userId, pointDto.amount);
     }
 }
