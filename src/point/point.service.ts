@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { UserPointTable } from 'src/database/userpoint.table';
 import { PointHistoryTable } from 'src/database/pointhistory.table';
-import { PointHistory, UserPoint } from './point.model';
+import { PointHistory, TransactionType, UserPoint } from './point.model';
 
 @Injectable()
 export class PointService {
@@ -12,6 +12,21 @@ export class PointService {
 
     async getUserPoint(userId: number): Promise<UserPoint> {
         return this.userDb.selectById(userId);
+    }
+
+    async chargeUserPoint(userId: number, amount: number): Promise<UserPoint> {
+        this.validateUserId(userId);
+
+        if (amount <= 0) {
+            throw new Error('충전 금액은 0보다 커야 합니다.');
+        }
+
+        const currentPoint = await this.userDb.selectById(userId);
+        const newTotal = currentPoint.point + amount;
+        const updatedPoint = await this.userDb.insertOrUpdate(userId, newTotal);
+        await this.historyDb.insert(userId, amount, TransactionType.CHARGE, Date.now());
+
+        return updatedPoint;
     }
 
     async getUserPointHistories(userId: number): Promise<PointHistory[]> {

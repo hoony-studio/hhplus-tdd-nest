@@ -19,14 +19,10 @@ export class PointController {
         return this.pointService.getUserPointHistories(userId);
     }
 
-    /**
-     * TODO - 특정 유저의 포인트를 충전하는 기능을 작성해주세요.
-     */
     @Patch(':id/charge')
     async charge(@Param('id') id, @Body(ValidationPipe) pointDto: PointDto): Promise<UserPoint> {
         const userId = Number.parseInt(id);
-        const amount = pointDto.amount;
-        return { id: userId, point: amount, updateMillis: Date.now() };
+        return this.pointService.chargeUserPoint(userId, pointDto.amount);
     }
 
     /**

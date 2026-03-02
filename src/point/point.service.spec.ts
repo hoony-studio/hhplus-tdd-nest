@@ -132,4 +132,63 @@ describe('PointService', () => {
             await expect(service.getUserPointHistories(-1)).rejects.toThrow();
         });
     });
+
+    // =========================================
+    // 단계 3: 포인트 충전
+    // =========================================
+    describe('포인트 충전', () => {
+        /**
+         * 기존 포인트에 충전 금액을 더한 결과가 반환되어야 한다.
+         * → 1000 + 500 = 1500
+         */
+        it('포인트를 충전하면 기존 포인트에 충전 금액이 합산된다', async () => {
+            // Given: 사용자 1번에 1000포인트가 있는 상황
+            await userDb.insertOrUpdate(1, 1000);
+
+            // When: 500포인트를 충전하면
+            const result = await service.chargeUserPoint(1, 500);
+
+            // Then: 1500포인트가 된다
+            expect(result.point).toBe(1500);
+        });
+
+        /**
+         * 처음 충전하는 사용자는 포인트가 0이므로, 충전 금액이 그대로 포인트가 된다.
+         * → 0 + 3000 = 3000
+         */
+        it('최초 충전 시 충전 금액이 그대로 포인트가 된다', async () => {
+            // Given: 포인트가 없는 신규 사용자 1번
+            // When: 3000포인트를 충전하면
+            const result = await service.chargeUserPoint(1, 3000);
+
+            // Then: 3000포인트가 된다
+            expect(result.point).toBe(3000);
+        });
+
+        /**
+         * 충전을 하면 CHARGE 타입의 이력이 반드시 기록되어야 한다.
+         * → 이력이 없으면 나중에 "왜 포인트가 늘었는지" 추적이 불가능
+         */
+        it('충전 시 CHARGE 타입의 이력이 기록된다', async () => {
+            // Given: 사용자 1번
+            // When: 1000포인트를 충전하면
+            await service.chargeUserPoint(1, 1000);
+
+            // Then: CHARGE 이력이 1건 기록되어 있다
+            const histories = await historyDb.selectAllByUserId(1);
+            expect(histories).toHaveLength(1);
+            expect(histories[0].type).toBe(TransactionType.CHARGE);
+            expect(histories[0].amount).toBe(1000);
+        });
+
+        /**
+         * 충전 금액이 0 이하이면 에러가 발생해야 한다.
+         * → 0원이나 마이너스 충전은 의미가 없음
+         */
+        it('충전 금액이 0 이하이면 에러가 발생한다', async () => {
+            // Given & When & Then: 0이나 음수로 충전 시도하면 에러
+            await expect(service.chargeUserPoint(1, 0)).rejects.toThrow();
+            await expect(service.chargeUserPoint(1, -100)).rejects.toThrow();
+        });
+    });
 });
